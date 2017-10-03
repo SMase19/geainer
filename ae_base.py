@@ -179,8 +179,8 @@ class Xavier(initializer.Initializer):
     """
 
     def __init__(self, fan_in, fan_out, constant=1, dtype=None):
-        self.fan_in = fan_in
-        self.fan_out = fan_out
+        #self.fan_in = fan_in
+        #self.fan_out = fan_out
         self.high = constant*np.sqrt(6.0/(fan_in + fan_out))
         self.low = -self.high
         super(Xavier, self).__init__(dtype)
@@ -196,23 +196,20 @@ class Xavier(initializer.Initializer):
         array[...] = xp.random.uniform(**args)
 
 
-class VariationalAutoEncoder2(chainer.Chain):
+class TybaltVAE(chainer.Chain):
     """Variational AutoEncoder"""
 
     def __init__(self, n_in, n_latent, n_h, act_func=f.tanh):
-        super(VariationalAutoEncoder2, self).__init__()
+        super(TybaltVAE, self).__init__()
         self.act_func = act_func
         with self.init_scope():
             # encoder
-            self.le1 = l.Linear(n_in,       n_h,        initialW=Xavier(n_in, n_h))
-            self.le2 = l.Linear(n_h,        n_h,        initialW=Xavier(n_h, n_h))
-            self.le3_mu = l.Linear(n_h,     n_latent,   initialW=Xavier(n_h,  n_latent))
-            self.le3_ln_var = l.Linear(n_h, n_latent,   initialW=Xavier(n_h,  n_latent))
+            self.le1 = l.Linear(n_in, n_h, initialW=Xavier(n_in, n_h))
+            self.bn1 = l.BatchNormalization(n_h, use_gamma=False, use_beta=False)
+            self.le2_mean = l.Linear(n_h, n_latent, initialW=Xavier(n_h, n_latent))
+            self.le2_log_var = l.Linear(n_h, n_latent, initialW=Xavier(n_h, n_latent))
             # decoder
-            self.ld1 = l.Linear(n_latent,   n_h,        initialW=Xavier(n_latent, n_h))
-            self.ld2 = l.Linear(n_h,        n_h,        initialW=Xavier(n_h, n_h))
-            self.ld3 = l.Linear(n_h,        n_in,       initialW=Xavier(n_h, n_in))
-            self.ld4 = l.Linear(n_latent,   n_in,       initialW=Xavier(n_latent, n_in))
+            self.ld1 = l.Linear(n_latent, n_in, initialW=Xavier(n_latent, n_h))
 
     def __call__(self, x, sigmoid=True):
         """AutoEncoder"""
@@ -222,29 +219,24 @@ class VariationalAutoEncoder2(chainer.Chain):
         if type(x) != chainer.variable.Variable:
             x = chainer.Variable(x)
         x.name = "x"
-        h1 = self.act_func(f.batch_normalization(self.le1(x)))
+        # h1 = self.act_func(self.bn1(self.le1(x)))
+        le1 = self.le1(x)
+        bn1 = self.bn1(le1)
+        h1 = self.act_func(bn1)
         h1.name = "enc_h1"
-        #h2 = self.act_func(self.le2(h1))
-        #h2.name = "enc_h2"
-        mu = self.le3_mu(h1)
-        mu.name = "z_mu"
-        ln_var = self.le3_ln_var(h1)  # ln_var = log(sigma**2)
-        ln_var.name = "z_ln_var"
-        return mu, ln_var
+        mean = self.le2_mean(h1)
+        mean.name = "z_mean"
+        log_var = self.le2_log_var(h1)
+        log_var.name = "z_log_var"
+        return mean, log_var
 
     def decode(self, z, sigmoid=True):
-        # h1 = self.act_func(self.ld1(z))
-        # h1.name = "dec_h1"
-        # h2 = self.act_func(self.ld2(h1))
-        # h2.name = "dec_h2"
-        # h3 = self.ld3(h2)
-        # h3.name = "dec_h3"
-        h4 = self.ld4(z)
-        h4.name = "dec_h4"
+        h1 = self.ld1(z)
+        h1.name = "dec_h1"
         if sigmoid:
-            return f.sigmoid(h4)
+            return f.sigmoid(h1)
         else:
-            return h4
+            return h1
 
     def get_loss_func(self, C=1.0, k=1):
         """Get loss function of VAE.

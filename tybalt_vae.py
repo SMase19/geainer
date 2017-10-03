@@ -32,8 +32,6 @@ from keras import metrics, optimizers
 from keras.callbacks import Callback
 import keras
 
-import pydot
-import graphviz
 from keras.utils import plot_model
 from IPython.display import SVG
 from keras.utils.vis_utils import model_to_dot
@@ -44,16 +42,16 @@ from IPython import get_ipython
 print(keras.__version__)
 tf.__version__
 
-# In[3]:
-
-get_ipython().magic('matplotlib inline')
-plt.style.use('seaborn-notebook')
-
-# In[4]:
-
-sns.set(style="white", color_codes=True)
-sns.set_context("paper", rc={"font.size": 14, "axes.titlesize": 15, "axes.labelsize": 20,
-                             'xtick.labelsize': 14, 'ytick.labelsize': 14})
+# # In[3]:
+#
+# get_ipython().magic('matplotlib inline')
+# plt.style.use('seaborn-notebook')
+#
+# # In[4]:
+#
+# sns.set(style="white", color_codes=True)
+# sns.set_context("paper", rc={"font.size": 14, "axes.titlesize": 15, "axes.labelsize": 20,
+#                              'xtick.labelsize': 14, 'ytick.labelsize': 14})
 
 
 # ## Load Functions and Classes
@@ -94,6 +92,10 @@ class CustomVariationalLayer(Layer):
         reconstruction_loss = original_dim * metrics.binary_crossentropy(x_input, x_decoded)
         kl_loss = - 0.5 * K.sum(1 + z_log_var_encoded - K.square(z_mean_encoded) -
                                 K.exp(z_log_var_encoded), axis=-1)
+        print(reconstruction_loss)
+        print(K.get_value(beta))
+        print(kl_loss.__str__())
+        print(K.mean(reconstruction_loss + (K.get_value(beta) * kl_loss)).__str__())
         return K.mean(reconstruction_loss + (K.get_value(beta) * kl_loss))
 
     def call(self, inputs):
@@ -207,30 +209,37 @@ vae.summary()
 # In[14]:
 
 # Visualize the connections of the custom VAE model
-output_model_file = os.path.join('figures', 'onehidden_vae_architecture.png')
-plot_model(vae, to_file=output_model_file)
-
-SVG(model_to_dot(vae).create(prog='dot', format='svg'))
+# output_model_file = os.path.join('figures', 'onehidden_vae_architecture.png')
+# plot_model(vae, to_file=output_model_file)
+#
+# SVG(model_to_dot(vae).create(prog='dot', format='svg'))
 
 # ## Train the model
 #
 # The training data is shuffled after every epoch and 10% of the data is heldout for calculating validation loss.
 
 # In[15]:
+hist = vae.fit(np.array(rnaseq_train_df),
+               shuffle=True,
+               epochs=epochs,
+               batch_size=batch_size,
+               validation_data=(np.array(rnaseq_test_df), np.array(rnaseq_test_df)),
+               callbacks=[WarmUpCallback(beta, kappa)])
 
-get_ipython().run_cell_magic('time', '',
-                             'hist = vae.fit(np.array(rnaseq_train_df),\n               shuffle=True,\n               epochs=epochs,\n               batch_size=batch_size,\n               validation_data=(np.array(rnaseq_test_df), np.array(rnaseq_test_df)),\n               callbacks=[WarmUpCallback(beta, kappa)])')
+
+# get_ipython().run_cell_magic('time', '',
+#                              'hist = vae.fit(np.array(rnaseq_train_df),\n               shuffle=True,\n               epochs=epochs,\n               batch_size=batch_size,\n               validation_data=(np.array(rnaseq_test_df), np.array(rnaseq_test_df)),\n               callbacks=[WarmUpCallback(beta, kappa)])')
 
 # In[16]:
 
 # Visualize training performance
-history_df = pd.DataFrame(hist.history)
-hist_plot_file = os.path.join('figures', 'onehidden_vae_training.pdf')
-ax = history_df.plot()
-ax.set_xlabel('Epochs')
-ax.set_ylabel('VAE Loss')
-fig = ax.get_figure()
-fig.savefig(hist_plot_file)
+# history_df = pd.DataFrame(hist.history)
+# hist_plot_file = os.path.join('figures', 'onehidden_vae_training.pdf')
+# ax = history_df.plot()
+# ax.set_xlabel('Epochs')
+# ax.set_ylabel('VAE Loss')
+# fig = ax.get_figure()
+# fig.savefig(hist_plot_file)
 
 # ## Compile and output trained models
 #
@@ -341,4 +350,4 @@ gene_summary.sort_values(by='gene abs(sum)', ascending=False).head()
 # In[26]:
 
 # Mean of gene reconstruction vs. absolute reconstructed difference per sample
-g = sns.jointplot('gene mean', 'gene abs(sum)', data=gene_summary, stat_func=None);
+# g = sns.jointplot('gene mean', 'gene abs(sum)', data=gene_summary, stat_func=None);

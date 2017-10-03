@@ -2,14 +2,15 @@
 """Chainer example: train a VAE on MNIST
 """
 from __future__ import print_function
-import argparse
+import argparse, os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import six
 
 import chainer
-from chainer import computational_graph
+from chainer import computational_graph as c
 from chainer import cuda
 from chainer import optimizers
 from chainer import serializers
@@ -45,26 +46,36 @@ print('# epoch: {}'.format(args.epoch))
 print('')
 
 # Prepare dataset
-print('load MNIST dataset')
+print('load pancaner dataset')
 
-N = 60000
-train, test = chainer.datasets.get_mnist()
-x_train, y_train = train._datasets
-x_test, y_test = test._datasets
-N_test = y_test.size
 
-# Prepare VAE model, defined in net.py
-# model = net.VAE(784, n_latent, 500)
-# model = ae.VariationalAutoEncoder(784, n_latent, 500, act_func=f.relu)
-model = ae.VariationalAutoEncoder(784, n_latent, 500)
+np.random.seed(123)
+
+# 遺伝子発現量RNAseqを読み込む
+rnaseq_file = os.path.join('data', 'pancan_scaled_zeroone_rnaseq.tsv')
+rnaseq_df = pd.read_table(rnaseq_file, index_col=0).astype(np.float32)
+print(rnaseq_df.shape)
+print(rnaseq_df.values[0].dtype)
+
+
+# Split 10% test set randomly
+test_set_percent = 0.1
+rnaseq_test_df = rnaseq_df.sample(frac=test_set_percent).astype(np.float32)
+rnaseq_train_df = rnaseq_df.drop(rnaseq_test_df.index).astype(np.float32)
+
+original_dim = rnaseq_df.shape[1]
+N = rnaseq_train_df.shape[0]
+
+# Prepare VAE model
+model = ae.TybaltVAE(original_dim, n_latent, n_latent, act_func=f.relu)
+
 if args.gpu >= 0:
     cuda.get_device_from_id(args.gpu).use()
     model.to_gpu()
 xp = np if args.gpu < 0 else cuda.cupy
 
 # Setup optimizer
-#optimizer = optimizers.Adam(alpha=0.0005)
-optimizer = optimizers.Adam()
+optimizer = optimizers.Adam(alpha=0.0005)
 optimizer.setup(model)
 
 # Init/Resume
@@ -74,25 +85,28 @@ if args.initmodel:
 if args.resume:
     print('Load optimizer state from', args.resume)
     serializers.load_npz(args.resume, optimizer)
+#
+# g = c.build_computational_graph((model,), remove_split=True)  # <-- パラメタの書き方がマニュアルと違うが、これでないと動かない感じ。
+# with open('./mysample.dot', 'w') as o:
+#     o.write(g.dump())
+
 
 # Learning loop
-for epoch in range(1, n_epoch + 1):
+for epoch in six.moves.range(1, n_epoch + 1):
     print('epoch', epoch)
+    # epoch_time = time.time()
 
     # training
     perm = np.random.permutation(N)
-    sum_loss = 0       # total loss
-    sum_rec_loss = 0   # reconstruction loss
+    sum_loss = 0  # total loss
+    sum_rec_loss = 0  # reconstruction loss
+    c_value = 2
+    if epoch < 3:
+        c_value = epoch - 1
     for i in six.moves.range(0, N, batch_size):
-        x = chainer.Variable(xp.asarray(x_train[perm[i:i + batch_size]]))
-        optimizer.update(model.get_loss_func(), x)
-        if epoch == 1 and i == 0:
-            with open('graph.dot', 'w') as o:
-                g = computational_graph.build_computational_graph(
-                    (model.loss, ))
-                o.write(g.dump())
-            print('graph generated')
+        x = chainer.Variable(xp.asarray(rnaseq_train_df.values[perm[i:i + batch_size]]))
 
+        optimizer.update(model.get_loss_func(C=c_value), x)
         sum_loss += float(model.loss.data) * len(x.data)
         sum_rec_loss += float(model.rec_loss.data) * len(x.data)
 
@@ -103,16 +117,15 @@ for epoch in range(1, n_epoch + 1):
     sum_loss = 0
     sum_rec_loss = 0
     with chainer.no_backprop_mode():
-        for i in six.moves.range(0, N_test, batch_size):
-            x = chainer.Variable(xp.asarray(x_test[i:i + batch_size]))
-            loss_func = model.get_loss_func(k=10)
+        for i in six.moves.range(0, rnaseq_test_df.shape[0], batch_size):
+            x = chainer.Variable(xp.asarray(rnaseq_test_df.values[i:i + batch_size]))
+            loss_func = model.get_loss_func()
             loss_func(x)
             sum_loss += float(model.loss.data) * len(x.data)
             sum_rec_loss += float(model.rec_loss.data) * len(x.data)
             del model.loss
     print('test  mean loss={}, mean reconstruction loss={}'
-          .format(sum_loss / N_test, sum_rec_loss / N_test))
-
+          .format(sum_loss / rnaseq_test_df.shape[0], sum_rec_loss / rnaseq_test_df.shape[0]))
 
 # Save the model and the optimizer
 print('save the model')
@@ -132,14 +145,14 @@ def save_images(x, filename):
 
 
 train_ind = [1, 3, 5, 10, 2, 0, 13, 15, 17]
-x = chainer.Variable(np.asarray(x_train[train_ind]))
+x = chainer.Variable(np.asarray(rnaseq_train_df[train_ind]))
 with chainer.no_backprop_mode():
     x1 = model(x)
 save_images(x.data, 'train')
 save_images(x1.data, 'train_reconstructed')
 
 test_ind = [3, 2, 1, 18, 4, 8, 11, 17, 61]
-x = chainer.Variable(np.asarray(x_test[test_ind]))
+x = chainer.Variable(np.asarray(rnaseq_test_df[test_ind]))
 with chainer.no_backprop_mode():
     x1 = model(x)
 save_images(x.data, 'test')
