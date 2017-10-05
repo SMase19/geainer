@@ -13,7 +13,7 @@ from keras.layers.normalization import BatchNormalization
 from keras.models import Model
 from keras import backend as K
 from keras import metrics, optimizers
-from keras.callbacks import Callback
+from keras.callbacks import Callback, TensorBoard
 import keras
 
 
@@ -32,6 +32,16 @@ class CustomVariationalLayer(Layer):
         self.is_placeholder = True
         super(CustomVariationalLayer, self).__init__(**kwargs)
 
+    # def binary_crossentropy(self, y_true, y_pred):
+    #     return K.sum(K.binary_crossentropy(y_pred, y_true), axis=-1)
+    #
+    # def vae_loss(self, x, x_decoded_mean):
+    #     xent_loss = K.mean(self.binary_crossentropy(x, x_decoded_mean),axis=-1)
+    #     kl_loss = - 0.5 * K.sum(1 + z_log_var_encoded - K.square(z_mean_encoded) -
+    #                             K.exp(z_log_var_encoded), axis=-1)
+    #     return K.mean(xent_loss + (K.get_value(beta) * kl_loss))
+
+    # wrong?
     def vae_loss(self, x, x_decoded_mean):
         xent_loss = original_dim * metrics.binary_crossentropy(x, x_decoded_mean)
         kl_loss = - 0.5 * K.sum(1 + z_log_var_encoded - K.square(z_mean_encoded) -
@@ -56,7 +66,7 @@ class WarmUpCallback(Callback):
         if K.get_value(self.beta) <= 1:
             K.set_value(self.beta, K.get_value(self.beta) + self.kappa)
 
-
+# # ## Load Gene Expression Data
 np.random.seed(123)
 rnaseq_file = os.path.join('data', 'pancan_scaled_zeroone_rnaseq.tsv')
 rnaseq_df = pd.read_table(rnaseq_file, index_col=0)
@@ -77,7 +87,7 @@ epsilon_std = 1.0
 beta = K.variable(0)
 kappa = 1
 
-# ## Load Gene Expression Data
+
 
 # ## Encoder
 
@@ -106,10 +116,8 @@ hist = vae.fit(np.array(rnaseq_train_df),
                shuffle=True,
                epochs=epochs,
                batch_size=batch_size,
-               validation_data=(np.array(rnaseq_test_df), None),
-               callbacks=[WarmUpCallback(beta, kappa)])
-
-
+               validation_data=(np.array(rnaseq_test_df), np.array(rnaseq_test_df)),
+               callbacks=[WarmUpCallback(beta, kappa), TensorBoard(log_dir="log")])
 
 encoder = Model(rnaseq_input, z_mean_encoded)
 encoded_rnaseq_df = encoder.predict_on_batch(rnaseq_df)
@@ -142,26 +150,18 @@ plt.xlabel('Activation Sum')
 plt.ylabel('Count');
 
 # What does an example distribution of two latent features look like?
-
-# In[23]:
-
 # Example of node activation distribution for the first two latent features
 plt.figure(figsize=(6, 6))
 plt.scatter(encoded_rnaseq_df.iloc[:, 1], encoded_rnaseq_df.iloc[:, 2])
 plt.xlabel('Latent Feature 1')
-plt.xlabel('Latent Feature 2');
+plt.xlabel('Latent Feature 2')
 
 # ###  Observe reconstruction fidelity
-
-# In[24]:
-
 # How well does the model reconstruct the input RNAseq data
 input_rnaseq_reconstruct = decoder.predict(np.array(encoded_rnaseq_df))
 input_rnaseq_reconstruct = pd.DataFrame(input_rnaseq_reconstruct, index=rnaseq_df.index,
                                         columns=rnaseq_df.columns)
 input_rnaseq_reconstruct.head(2)
-
-# In[25]:
 
 reconstruction_fidelity = rnaseq_df - input_rnaseq_reconstruct
 
