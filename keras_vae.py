@@ -24,19 +24,19 @@ parser.add_argument('-b', '--batch_size',
                     default=50)
 parser.add_argument('-e', '--epochs',
                     help='How many times to cycle through the full dataset',
-                    default=200)
+                    default=50)
 parser.add_argument('-k', '--kappa',
                     help='How fast to linearly ramp up KL loss',
                     default=1)
 parser.add_argument('-d', '--depth',
                     help='Number of layers between input and latent layer',
-                    default=2)
+                    default=1)
 parser.add_argument('-c', '--first_layer',
                     help='Dimensionality of the first hidden layer',
                     default=100)
 parser.add_argument('-f', '--output_filename',
                     help='The name of the file to store results',
-                    default='hyperparam')
+                    default='hyperparam/param.tsv')
 args = parser.parse_args()
 
 
@@ -178,6 +178,9 @@ vae = Model(rnaseq_input, vae_layer)
 vae.compile(optimizer=adam, loss=None, loss_weights=[beta])
 vae.summary()
 
+boardlog_path = 'logs/learning={},batch={},epochs={},kappa={},depth={},first={}'.format(
+    learning_rate, batch_size, epochs, kappa, depth, first_layer)
+
 # fit Model
 hist = vae.fit(np.array(rnaseq_train_df),
                shuffle=True,
@@ -186,7 +189,7 @@ hist = vae.fit(np.array(rnaseq_train_df),
                validation_data=(np.array(rnaseq_test_df),
                                 np.array(rnaseq_test_df)),
                callbacks=[WarmUpCallback(beta, kappa),
-                          TensorBoard(log_dir="log")])
+                          TensorBoard(log_dir=boardlog_path)])
 
 encoder = Model(rnaseq_input, z_mean_encoded)
 encoded_rnaseq_df = encoder.predict_on_batch(rnaseq_df)
