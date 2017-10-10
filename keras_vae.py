@@ -37,6 +37,8 @@ parser.add_argument('-c', '--first_layer',
 parser.add_argument('-f', '--output_filename',
                     help='The name of the file to store results',
                     default='hyperparam/param.tsv')
+parser.add_argument('-g', '--output_boardlog',
+                    help='The name of the directory to store tensorboard logs')
 args = parser.parse_args()
 
 
@@ -48,6 +50,7 @@ kappa = float(args.kappa)
 depth = int(args.depth)
 first_layer = int(args.first_layer)
 output_filename = args.output_filename
+boardlog_path = args.output_boardlog
 
 # Load Gene Expression Data
 rnaseq_file = os.path.join('data', 'pancan_scaled_zeroone_rnaseq.tsv')
@@ -177,9 +180,6 @@ vae_layer = CustomVariationalLayer()([rnaseq_input, rnaseq_reconstruct])
 vae = Model(rnaseq_input, vae_layer)
 vae.compile(optimizer=adam, loss=None, loss_weights=[beta])
 vae.summary()
-
-boardlog_path = 'logs/learning={},batch={},epochs={},kappa={},depth={},first={}'.format(
-    learning_rate, batch_size, epochs, kappa, depth, first_layer)
 
 # fit Model
 hist = vae.fit(np.array(rnaseq_train_df),
