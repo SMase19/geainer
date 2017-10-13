@@ -16,12 +16,10 @@ def get_param(param):
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', '--parameter_file',
                     help='location of tab separated parameter file to sweep',
-                    default='config/parameter_sweep.tsv')
-# parser.add_argument('-c', '--config_file',
-#                     help='location of the configuration file for PMACS')
+                    default='config/parameter_sweep_adage.tsv')
 parser.add_argument('-a', '--algorithm',
                     help='which algorithm to sweep hyperparameters over',
-                    default='tybalt')
+                    default='adage')
 parser.add_argument('-s', '--python_path',
                     help='absolute path of python version',
                     default='~/.pyenv/versions/anaconda3-4.4.0/envs/geainer/bin/python')
@@ -30,7 +28,7 @@ parser.add_argument('-d', '--param_folder',
                     default='sweep_param')
 parser.add_argument('-t', '--script',
                     help='path the script to run the parameter sweep over',
-                    default='keras_vae.py')
+                    default='run_vae.py')
 args = parser.parse_args()
 
 parameter_file = args.parameter_file
@@ -66,7 +64,7 @@ if algorithm == 'tybalt':
                 for k in kappas:
                     f = 'sweepparam_{}lr_{}bs_{}e_{}k.tsv'.format(lr, bs, e, k)
                     #f = os.path.join(param_folder, f)
-                    boardlog_path = 'logs/learning={},batch={},epochs={},kappa={},depth={},first={}'.format(
+                    boardlog_path = '_logs/learning={},batch={},epochs={},kappa={},depth={},first={}'.format(
                         lr, bs, e, k, depth[0], first_layer_dim[0])
                     final_command = [python_path, script,
                                      '--learning_rate', lr,
@@ -85,6 +83,7 @@ if algorithm == 'tybalt':
                     f = os.path.join(boardlog_path, f)
                     os.system("bash confirm_features.sh")
                     os.system("mv figures/tsne_vae.pdf " + boardlog_path)
+                    os.system("mv figures/tsne_vae.png " + boardlog_path)
                     os.system("mv models/decoder_onehidden_vae.hdf5 " + boardlog_path)
                     os.system("mv models/encoder_onehidden_vae.hdf5 " + boardlog_path)
 
@@ -96,11 +95,24 @@ elif algorithm == 'adage':
                     for n in noises:
                         f = 'sweepparam_{}lr_{}bs_{}e_{}s_{}n.tsv'.format(lr, bs, e, s, n)
                         f = os.path.join(param_folder, f)
-                        params = ['--learning_rate', lr,
+                        boardlog_path = '_logs/learning={},batch={},epochs={},sparsity={},noise={}'.format(
+                            lr, bs, e, s, n)
+                        final_command = [python_path, script,
+                                  '--learning_rate', lr,
                                   '--batch_size', bs,
                                   '--epochs', e,
                                   '--sparsity', s,
                                   '--noise', n,
-                                  '--output_filename', f]
-                        final_command = [python_path, script] + params
-                        all_commands.append(final_command)
+                                  '--output_boardlog', boardlog_path]
+                        try:
+                            exe_command = " ".join(final_command)
+                        except:
+                            exe_command = final_command
+                        subprocess.call(exe_command, shell=True)
+                        f = os.path.join(boardlog_path, f)
+                        os.system("bash confirm_features.sh")
+                        os.system("mv figures/tsne_vae.pdf " + boardlog_path)
+                        os.system("mv figures/tsne_vae.png " + boardlog_path)
+                        os.system("mv models/decoder_onehidden_vae.hdf5 " + boardlog_path)
+                        os.system("mv models/encoder_onehidden_vae.hdf5 " + boardlog_path)
+                        os.system("mv results/tybalt_tsne_features.tsv " + boardlog_path)

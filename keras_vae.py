@@ -38,7 +38,7 @@ parser.add_argument('-f', '--output_filename',
                     help='The name of the file to store results',
                     default='hyperparam/param.tsv')
 parser.add_argument('-g', '--output_boardlog',
-                    help='The name of the directory to store tensorboard logs')
+                    help='The name of the directory to store tensorboard _logs')
 args = parser.parse_args()
 
 
