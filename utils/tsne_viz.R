@@ -12,7 +12,7 @@ clinical_df <- readr::read_tsv(clinical_file)
 clinical_df <- clinical_df %>% dplyr::select(sample_id, acronym)
 
 # Load tsne data
-tsne_vae_file <- file.path("results", "tybalt_tsne_features.tsv")
+tsne_vae_file <- file.path("results", "tsne_features.tsv")
 # tsne_rnaseq_file <- file.path("results", "rnaseq_tsne_features.tsv")
 
 tsne_vae_df <- readr::read_tsv(tsne_vae_file)
@@ -27,11 +27,17 @@ tsne_vae_df <- dplyr::inner_join(tsne_vae_df, clinical_df,
 tcga_colors <- readr::read_tsv(file.path("data", "tcga_colors.tsv"))
 tcga_colors <- tcga_colors[order(tcga_colors$`Study Abbreviation`), ]
 
-palette_order <- c("BRCA", "PRAD", "TGCT", "KICH", "KIRP", "KIRC", "BLCA",
-                   "OV", "UCS", "CESC", "UCEC", "THCA", "PCPG", "ACC", "SKCM",
-                   "UVM", "HNSC", "SARC", "ESCA", "STAD", "COAD", "READ",
-                   "CHOL", "PAAD", "LIHC", "DLBC", "MESO", "LUSC", "LUAD",
-                   "GBM", "LGG", "LAML", "THYM", NA)
+palette_order <- c(NA, NA, NA, NA, NA, NA, NA,
+                   NA, NA, NA, NA, NA, NA, NA, NA,
+                   NA, NA, NA, NA, NA, NA, NA,
+                   NA, NA, NA, NA, NA, "LUSC", "LUAD",
+                   NA, NA, NA, NA, NA)
+
+# palette_order <- c("BRCA", "PRAD", "TGCT", "KICH", "KIRP", "KIRC", "BLCA",
+#                    "OV", "UCS", "CESC", "UCEC", "THCA", "PCPG", "ACC", "SKCM",
+#                    "UVM", "HNSC", "SARC", "ESCA", "STAD", "COAD", "READ",
+#                    "CHOL", "PAAD", "LIHC", "DLBC", "MESO", "LUSC", "LUAD",
+#                    "GBM", "LGG", "LAML", "THYM", NA)
 
 # Plot and save VAE tsne
 vae_tsne_pdf_out_file <- file.path("figures", "tsne_vae.pdf")

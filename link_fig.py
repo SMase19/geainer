@@ -17,7 +17,7 @@ parser.add_argument('-a', '--algorithm',
                     default='tybalt')
 parser.add_argument('-p', '--parameter_file',
                     help='location of tab separated parameter file to sweep',
-                    default='config/parameter_sweep.tsv')
+                    default='config/tybalt_param_sweep.tsv')
 args = parser.parse_args()
 
 parameter_file = args.parameter_file

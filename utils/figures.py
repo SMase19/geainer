@@ -60,7 +60,7 @@ def plot_loss(histories):
 
     h = np.array(histories.values())
     # pylab.ylim([numpy.min(h), numpy.max(h)])
-    pylab.yscale("log")
+    pylab.yscale("logs")
     pylab.legend(loc="best")
 
     pylab.draw()

@@ -16,7 +16,7 @@ from sklearn import manifold
 # In[2]:
 
 # Load VAE feature activations per sample
-encoded_file = os.path.join('data', 'encoded_rnaseq_onehidden_warmup_batchnorm.tsv')
+encoded_file = os.path.join('data', 'encoded_rnaseq.tsv')
 encoded_df = pd.read_table(encoded_file, index_col=0)
 encoded_df.head(2)
 
@@ -39,7 +39,7 @@ tsne_out = tsne.fit_transform(encoded_df)
 tsne_out = pd.DataFrame(tsne_out, columns=['1', '2'])
 tsne_out.index = encoded_df.index
 tsne_out.index.name = 'tcga_id'
-tsne_out_file = os.path.join('results', 'tybalt_tsne_features.tsv')
+tsne_out_file = os.path.join('results', 'tsne_features.tsv')
 tsne_out.to_csv(tsne_out_file, sep='\t')
 tsne_out.head(2)
 

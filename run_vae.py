@@ -8,16 +8,16 @@ import models.vae_module as vae
 parser = argparse.ArgumentParser()
 parser.add_argument('-a', '--algorithm',
                     help='learning rate of the optimizer',
-                    default='adage')
+                    default='tybalt')
 parser.add_argument('-l', '--learning_rate',
                     help='learning rate of the optimizer',
-                    default=1.1)#0.0005)
+                    default=0.0005)
 parser.add_argument('-b', '--batch_size',
                     help='Number of samples to include in each learning batch',
                     default=50)
 parser.add_argument('-e', '--epochs',
                     help='How many times to cycle through the full dataset',
-                    default=100)#50)
+                    default=50)
 parser.add_argument('-k', '--kappa',
                     help='How fast to linearly ramp up KL loss',
                     default=1)
@@ -27,10 +27,7 @@ parser.add_argument('-d', '--depth',
 parser.add_argument('-c', '--first_layer',
                     help='Dimensionality of the first hidden layer',
                     default=100)
-parser.add_argument('-f', '--output_filename',
-                    help='The name of the file to store results',
-                    default='hyperparam/param.tsv')
-parser.add_argument('-g', '--output_boardlog',
+parser.add_argument('-g', '--output_board_log',
                     help='The name of the directory to store tensorboard _logs',
                     default='logs')
 parser.add_argument('-s', '--sparsity',
@@ -39,6 +36,9 @@ parser.add_argument('-s', '--sparsity',
 parser.add_argument('-n', '--noise',
                     help='noise',
                     default=0.05)
+parser.add_argument('-t', '--cancer_type',
+                    help='cancer_type',
+                    default='pancan')
 args = parser.parse_args()
 
 # Set hyper parameters
@@ -49,28 +49,27 @@ epochs = int(args.epochs)
 kappa = float(args.kappa)
 depth = int(args.depth)
 first_layer = int(args.first_layer)
-output_filename = args.output_filename
-boardlog_path = args.output_boardlog
-noise = args.noise
-sparsity = args.sparsity
+c_type = args.cancer_type
+board_log_path = args.output_board_log
+noise = float(args.noise)
+sparsity = float(args.sparsity)
+
 
 # Load Gene Expression Data
-rnaseq_file = os.path.join('data', 'pancan_scaled_zeroone_rnaseq.tsv')
+rnaseq_file = os.path.join('data', c_type, c_type + '_scaled_zeroone_rnaseq.tsv.gz')
 rnaseq_df = pd.read_table(rnaseq_file, index_col=0)
 print(rnaseq_df.shape)
 
 # Set architecture dimensions
 original_dim = rnaseq_df.shape[1]
 latent_dim = 100
-hidden_dim = 100
+hidden_dim = first_layer
 epsilon_std = 1.0
-
-if depth == 2:
-    latent_dim2 = int(first_layer)
 
 # Random seed
 # seed = int(np.random.randint(low=0, high=10000, size=1))
 # np.random.seed(seed)
+
 np.random.seed(123)
 
 # Process data
@@ -102,16 +101,16 @@ model.build_encoder_layer()
 model.build_decoder_layer()
 model.compile_vae()
 model.get_summary()
-model.train_vae(rnaseq_train_df=rnaseq_train_df, rnaseq_test_df=rnaseq_test_df, boardlog_path=boardlog_path)
+model.train_vae(rnaseq_train_df=rnaseq_train_df, rnaseq_test_df=rnaseq_test_df, boardlog_path=board_log_path)
 
 model_compressed_df = model.compress(rnaseq_df)
 model_compressed_df.columns.name = 'sample_id'
 model_compressed_df.columns = model_compressed_df.columns + 1
-encoded_file = os.path.join('data', 'encoded_rnaseq_onehidden_warmup_batchnorm.tsv')
+encoded_file = os.path.join('data', 'encoded_rnaseq.tsv')
 model_compressed_df.to_csv(encoded_file, sep='\t')
 
 model_weights = model.get_decoder_weights(rnaseq_df)
 
-encoder_model_file = os.path.join('models', 'encoder_onehidden_vae.hdf5')
-decoder_model_file = os.path.join('models', 'decoder_onehidden_vae.hdf5')
+encoder_model_file = os.path.join('models', 'encoder_vae.hdf5')
+decoder_model_file = os.path.join('models', 'decoder_vae.hdf5')
 model.save_models(encoder_file=encoder_model_file, decoder_file=decoder_model_file)
